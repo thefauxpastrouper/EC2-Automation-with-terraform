@@ -1,226 +1,141 @@
-# AWS VPC Setup with Public and Private Subnets Across Two Availability Zones
+# 🚀 EC2 Automation with Terraform
 
-This README file provides step-by-step instructions to create an AWS VPC setup with the following architecture:
+This guide provides a step-by-step approach to automating the provisioning and management of an EC2 instance using **Terraform**.
 
-- A single VPC.
-- Two Availability Zones (AZs): **Zone A** and **Zone B**.
-- Each AZ contains one public subnet and one private subnet:
-  - **Zone A**: Public Subnet 1 and Private Subnet 1.
-  - **Zone B**: Public Subnet 2 and Private Subnet 2.
-- The public subnets are connected to the Internet via an **Internet Gateway (IGW)**.
-- The private subnets are connected to each other via a **Virtual Private Gateway (VPG)**.
+By the end of this tutorial, you'll be able to:
+- Install and configure Terraform
+- Set up AWS credentials
+- Write and apply Terraform configuration
+- Deploy, verify, and destroy an EC2 instance
 
 ---
 
-## Definitions
+## 1. 📥 Install Terraform
 
-### Virtual Private Cloud (VPC)
+Before you begin, install Terraform:
 
-A Virtual Private Cloud is a logically isolated section of the AWS cloud where you can launch resources in a virtual network you define. A VPC allows you to control your network settings such as IP address ranges, subnets, route tables, and gateways.
+- Download the latest version from the [Terraform Downloads Page](https://www.terraform.io/downloads)
+- Follow OS-specific installation instructions
+- Verify the installation:
 
-### Subnets
+```bash
+terraform -v
+```
 
-Subnets are subdivisions of a VPC that allow you to group resources by IP range within an Availability Zone. Subnets can be public (accessible from the internet) or private (isolated from the internet).
+##  2. 🔐 Configure AWS Credentials
 
-### Internet Gateway (IGW)
+```bash
+aws configure
+```
 
-An Internet Gateway is a VPC component that allows resources in public subnets to access the internet. It serves as a target for internet-bound traffic in the route table of a public subnet.
+You'll be prompted to enter:
 
-### Virtual Private Gateway (VPG)
+AWS Access Key ID
 
-A Virtual Private Gateway is a VPN concentrator on the AWS side of a VPN connection. It allows private subnets to securely communicate with other private networks, such as on-premises environments or other VPCs.
+AWS Secret Access Key
 
-### Route Table
+Default region (e.g., us-east-1, eu-west-2)
 
-A Route Table contains a set of rules, called routes, that determine where network traffic is directed.
+Default output format (optional: json, text, or table)
 
-### Availability Zone (AZ)
+Verify your setup:
 
-An Availability Zone is a distinct location within an AWS Region that is engineered to be isolated from failures in other zones, providing high availability.
+```bash
+aws sts get-caller-identity
+```
 
----
+## 📂 Create Terraform Configuration Directory
 
-## Architecture Overview
+```bash
+mkdir terraform-ec2 && cd terraform-ec2
+touch main.tf
+```
 
-### VPC Configuration
+## 4. ✍️ Define the EC2 Instance in main.tf
 
-- **CIDR Block**: `10.0.0.0/24`
+```hcl
+provider "aws" {
+  profile = "default"          # Uses your AWS CLI profile
+  region  = "eu-west-2"        # Update this to your region
+}
 
-### Subnet Configuration
+resource "aws_instance" "UGO_Server" {
+  ami           = "ami-0cbf43fd299e3a464"  # Ensure this AMI is valid in your region
+  instance_type = "t2.micro"
 
-- **Zone A**:
-  - Public Subnet 1: `10.0.0.0/26`
-  - Private Subnet 1: `10.0.0.128/26`
-- **Zone B**:
-  - Public Subnet 2: `10.0.0.64/26`
-  - Private Subnet 2: `10.0.0.192/26`
+  tags = {
+    Name = "MyNCAAInstance"
+  }
+}
+```
+🔎 To find a valid AMI ID for your region:
 
-### Gateways
+```bash
+aws ec2 describe-images --owners amazon --filters "Name=name,Values=amzn2-ami-hvm-*-x86_64-gp2"
+```
 
-- **IGW**: Connects Public Subnet 1 and Public Subnet 2 to the internet.
-- **VPG**: Connects Private Subnet 1 and Private Subnet 2.
+## 5. ⚙️ Initialize Terraform
 
----
+```bash
+terraform init
+```
 
-## Step-by-Step Instructions
+This command:
 
-### Step 1: Create the VPC
+Downloads the required provider plugins
 
-1. Log in to the AWS Management Console.
-2. Navigate to **VPC Dashboard**.
-3. Click **Create VPC**:
-   - **Name**: `My-VPC`.
-   - **IPv4 CIDR Block**: `10.0.0.0/24`.
-   - Leave other options as default.
-4. Click **Create VPC**.
+Initializes the project directory
 
-### Step 2: Create Subnets
+Prepares Terraform for execution
 
-#### Zone A
+## 6. ✅ Validate and Plan
 
-1. Navigate to **Subnets** in the VPC Dashboard.
-2. Click **Create Subnet**:
-   - **Name**: `Public-Subnet-1`.
-   - **VPC**: Select `My-VPC`.
-   - **Availability Zone**: Select an AZ for Zone A (e.g., `us-east-1a`).
-   - **CIDR Block**: `10.0.0.0/26`.
-3. Click **Create Subnet**.
-4. Repeat the process to create `Private-Subnet-1`:
-   - **Availability Zone**: `us-east-1a`.
-   - **CIDR Block**: `10.0.0.128/26`.
+```bash
+terraform validate
+```
+```bash
+terraform plan
+```
 
-#### Zone B
+## 7. 🚀 Apply the Configuration
+Deploy the EC2 instance:
 
-1. Create `Public-Subnet-2`:
-   - **Availability Zone**: Select an AZ for Zone B (e.g., `us-east-1b`).
-   - **CIDR Block**: `10.0.0.64/26`.
-2. Create `Private-Subnet-2`:
-   - **Availability Zone**: `us-east-1b`.
-   - **CIDR Block**: `10.0.0.192/26`.
+```bash
+terraform apply -auto-approve
+```
 
-### Step 3: Create an Internet Gateway (IGW)
+## 8. 🔍 Verify the Instance
 
-1. Navigate to **Internet Gateways** in the VPC Dashboard.
-2. Click **Create Internet Gateway**:
-   - **Name**: `My-IGW`.
-3. Click **Create**.
-4. Attach the IGW to `My-VPC`:
-   - Select the IGW → **Actions** → **Attach to VPC** → Choose `My-VPC`.
+```bash
+aws ec2 describe-instances \
+  --query 'Reservations[*].Instances[*].[InstanceId,State.Name,PublicIpAddress]' \
+  --output table
+```
 
-### Step 4: Create a Virtual Private Gateway (VPG)
+## 9. 🧹 Destroy the Instance
+Clean up resources when done:
 
-1. Navigate to **Virtual Private Gateways** in the VPC Dashboard.
-2. Click **Create Virtual Private Gateway**:
-   - **Name**: `My-VPG`.
-   - Leave the ASN as default.
-3. Click **Create**.
-4. Attach the VPG to `My-VPC`:
-   - Select the VPG → **Actions** → **Attach to VPC** → Choose `My-VPC`.
+```bash
+terraform destroy -auto-approve
+```
 
-### Step 5: Configure Route Tables
+Terraform will:
 
-#### Public Route Table
+Identify resources
 
-1. Navigate to **Route Tables** in the VPC Dashboard.
-2. Create a route table for public subnets:
-   - Click **Create Route Table**.
-   - **Name**: `Public-Route-Table`.
-   - **VPC**: Select `My-VPC`.
-3. Add a route for internet traffic:
-   - Select the route table → **Routes** tab → **Edit Routes** → **Add Route**.
-   - **Destination**: `0.0.0.0/0`.
-   - **Target**: Select `My-IGW`.
-4. Associate public subnets with the route table:
-   - **Subnet Associations** → **Edit Subnet Associations** → Select `Public-Subnet-1` and `Public-Subnet-2`.
+Confirm (auto-approved)
 
-#### Private Route Table
+Destroy the instance
 
-1. Create a route table for private subnets:
-   - Click **Create Route Table**.
-   - **Name**: `Private-Route-Table`.
-   - **VPC**: Select `My-VPC`.
-2. Enable route propagation for the VPG:
-   - Select the route table → **Route Propagation** tab → **Edit Route Propagation** → Select `My-VPG`.
-3. Associate private subnets with the route table:
-   - **Subnet Associations** → **Edit Subnet Associations** → Select `Private-Subnet-1` and `Private-Subnet-2`.
+## 🏁 10. Conclusion
+You have successfully:
 
-### Step 6: Launch EC2 Instances
+Installed and configured Terraform
 
-#### Public Subnets
+Set up AWS credentials
 
-1. Launch an EC2 instance in `Public-Subnet-1`:
-   - Select an AMI (e.g., Amazon Linux 2).
-   - Configure networking to use `Public-Subnet-1`.
-   - Assign a public IP address.
-2. Repeat the process for `Public-Subnet-2`.
+Created and applied a Terraform EC2 configuration
 
-#### Private Subnets
-1. Launch an EC2 instance in `Private-Subnet-1`:
-   - **Step 1**: Navigate to the EC2 Dashboard and click **Launch Instance**.
-   - **Step 2**: Choose an AMI (e.g., Amazon Linux 2 or Ubuntu).
-   - **Step 3**: Choose an instance type (e.g., `t2.micro`).
-   - **Step 4**: Configure instance details:
-     - **Network**: Select `My-VPC`.
-     - **Subnet**: Select `Private-Subnet-1`.
-     - **Auto-assign Public IP**: Disable.
-     - Leave other options as default or customize as needed.
-   - **Step 5**: Add storage (default is fine).
-   - **Step 6**: Add tags (optional, e.g., `Key: Name`, `Value: Private-Instance-1`).
-   - **Step 7**: Configure security group:
-     - Create or select a security group that allows SSH access from a specific IP or CIDR block.
-   - **Step 8**: Review and launch:
-     - Select an existing key pair or create a new one for SSH access.
-     - Click **Launch**.
+Verified and destroyed an EC2 instance
 
-2. Repeat the process for `Private-Subnet-2`, selecting the corresponding subnet.
-
----
-
-## Configure a Security Group for SSH Access
-
-### Step 1: Navigate to the Security Groups Section
-1. Log in to the **AWS Management Console**.
-2. Open the **VPC Dashboard** or **EC2 Dashboard**.
-3. On the left-hand navigation menu, click **Security Groups** under **Network & Security**.
-
-### Step 2: Create a New Security Group
-1. Click the **Create security group** button.
-2. Configure the following settings:
-   - **Name tag**: Enter a name for the security group (e.g., `Private-SSH-Access`).
-   - **Description**: Provide a description (e.g., `Allows SSH access from specific IP`).
-   - **VPC**: Select the VPC (`My-VPC`) where your instance resides.
-
-### Step 3: Configure Inbound Rules
-1. Under the **Inbound rules** section, click **Add rule**.
-2. Define the SSH rule as follows:
-   - **Type**: `SSH`.
-   - **Protocol**: `TCP` (auto-filled when SSH is selected).
-   - **Port Range**: `22`.
-   - **Source**: Select one of the following:
-     - **My IP**: Automatically fills in your current public IP address.
-     - **Custom**: Enter a specific IP or CIDR block. For example:
-       - Single IP: `203.0.113.25/32` (allows only this IP).
-       - CIDR Block: `192.168.1.0/24` (allows all IPs in this range).
-     - **Anywhere-IPv4 (Not recommended for private instances)**: `0.0.0.0/0` (allows SSH access from any IPv4 address).
-3. Click **Save rules**.
-
-### Step 4: (Optional) Configure Outbound Rules
-1. By default, all outbound traffic is allowed. If you need to restrict outbound traffic:
-   - Click the **Outbound rules** section.
-   - Add or modify rules as needed (e.g., limit outbound traffic to specific IPs or services).
-
-### Step 5: Attach the Security Group to Your Instance
-1. Navigate to the **EC2 Dashboard**.
-2. Select the instance where you want to apply the security group.
-3. Click **Actions** → **Security** → **Change security groups**.
-4. Select the `Private-SSH-Access` security group you just created.
-5. Click **Save**.
-
----
-
-## Testing and Verification
-- Verify public instances have internet access via their public IPs.
-- Ensure private instances communicate only via the VPG.
-- Use SSH or ping to test connectivity between instances.
-
----
+🎉 Congrats on automating your cloud infrastructure!
